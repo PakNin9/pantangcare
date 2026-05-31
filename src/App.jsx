@@ -1497,6 +1497,15 @@ export default function PantangCare() {
     setTimeout(() => saveRoom(code, { ...data, names: updatedNames, onboarded: true }), 600);
   }
 
+  function handleLogout() {
+    clearSession();
+    setInRoom(false);
+    setOnboarded(false);
+    setRoomCode(null);
+    setRole("suami");
+    setNames({ suami: "Suami", isteri: "Isteri", tarikhBersalin: "", jenisBersalin: "normal" });
+  }
+
   if (!inRoom) return <RoomLobby onCreate={handleCreate} onJoin={handleJoin} />;
 
   const isCzer = names.jenisBersalin === "czer";
@@ -1550,9 +1559,14 @@ export default function PantangCare() {
             <div style={{ width:8, height:8, borderRadius:"50%", background: syncStatus==="ok" ? "#95D5B2" : syncStatus==="syncing" ? "#FFD166" : "#ffffff33", transition:"background 0.3s" }} />
             <span style={{ fontSize:10, color:"#A8D5BC" }}>{syncStatus==="syncing" ? "Menyimpan..." : syncStatus==="ok" ? "Sync ✓" : roomCode || ""}</span>
           </div>
-          <button onClick={() => setShowShare(true)} style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", color:"#fff", borderRadius:12, padding:"4px 12px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-            🔗 Kongsi
-          </button>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={() => setShowShare(true)} style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", color:"#fff", borderRadius:12, padding:"4px 10px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              🔗 Kongsi
+            </button>
+            <button onClick={handleLogout} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#A8D5BC", borderRadius:12, padding:"4px 8px", fontSize:10, cursor:"pointer", fontFamily:"inherit" }} title="Tukar akaun">
+              ↩ Tukar
+            </button>
+          </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
@@ -1565,7 +1579,7 @@ export default function PantangCare() {
                 <div style={{ color:"#fff", fontWeight:900, fontSize:16 }}>{names[role]}</div>
                 <div style={{ color:"#A8D5BC", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>{role}</div>
               </div>
-              <span style={{ fontSize:9, fontWeight:800, background:"#FFD166", color:"#1A2E1A", borderRadius:6, padding:"2px 7px", letterSpacing:"0.05em" }}>BETA</span>
+
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
