@@ -55,6 +55,16 @@ function clearSession() {
   try { localStorage.removeItem("pc_session"); } catch(e) {}
 }
 
+// Unique device ID — stays same across refreshes for same browser
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem("pc_device_id");
+    if (!id) { id = "dev_" + Math.random().toString(36).slice(2); localStorage.setItem("pc_device_id", id); }
+    return id;
+  } catch(e) { return "dev_" + Math.random().toString(36).slice(2); }
+}
+const DEVICE_ID = getDeviceId();
+
 
 
 
@@ -1551,33 +1561,44 @@ export default function PantangCare() {
     if (data.onboarded != null) setOnboarded(data.onboarded);
   }
 
-  // Auto-save setiap kali state berubah (debounced 2s)
+  // Flag untuk block save semasa apply remote data
+  const isApplyingRemote = useRef(false);
   const saveTimer = useRef(null);
+
+  // Auto-save — HANYA bila user buat perubahan sendiri (bukan dari remote)
   useEffect(() => {
     if (!inRoom || !roomCode) return;
+    if (isApplyingRemote.current) return; // skip — ini remote update, bukan user action
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       if (isSaving.current) return;
       isSaving.current = true;
       setSyncStatus("syncing");
-      await saveRoom(roomCode, packState());
+      await saveRoom(roomCode, { ...packState(), _savedBy: DEVICE_ID });
       lastTs.current = Date.now();
       isSaving.current = false;
       setSyncStatus("ok");
       setTimeout(() => setSyncStatus("idle"), 2000);
-    }, 2000);
+    }, 3000); // 3s debounce
   }, [inRoom, roomCode, onboarded, names, day, tasks, czerTaskState, menu, log, bidan, supps, bidanChecklist, susu]);
 
-  // Subscribe realtime updates dari Firebase
+  // Subscribe realtime — HANYA apply kalau dari device lain
   useEffect(() => {
     if (!inRoom || !roomCode) return;
     const unsub = subscribeRoom(roomCode, (data) => {
-      if (data._ts && data._ts > lastTs.current + 1500) {
-        lastTs.current = data._ts;
-        applyState(data);
-        setSyncStatus("ok");
-        setTimeout(() => setSyncStatus("idle"), 2000);
-      }
+      // Skip kalau ini save kita sendiri
+      if (data._savedBy && data._savedBy === DEVICE_ID) return;
+      // Skip kalau data lama
+      if (data._ts && data._ts <= lastTs.current) return;
+      lastTs.current = data._ts || Date.now();
+      // Apply tanpa trigger save loop
+      isApplyingRemote.current = true;
+      applyState(data);
+      setSyncStatus("ok");
+      setTimeout(() => {
+        isApplyingRemote.current = false;
+        setSyncStatus("idle");
+      }, 500);
     });
     return () => unsub();
   }, [inRoom, roomCode]);
@@ -1597,7 +1618,7 @@ export default function PantangCare() {
     setNames(newNames);
     setOnboarded(true);
     saveSession(code, userRole, userName);
-    await saveRoom(code, { ...packState(), names: newNames, onboarded: true });
+    await saveRoom(code, { ...packState(), names: newNames, onboarded: true, _savedBy: DEVICE_ID });
     setInRoom(true);
   }
 
@@ -1610,7 +1631,7 @@ export default function PantangCare() {
     setOnboarded(true);
     saveSession(code, userRole, userName);
     setInRoom(true);
-    setTimeout(() => saveRoom(code, { ...data, names: updatedNames, onboarded: true }), 600);
+    setTimeout(() => saveRoom(code, { ...data, names: updatedNames, onboarded: true, _savedBy: DEVICE_ID }), 600);
   }
 
   function handleLogout() {
