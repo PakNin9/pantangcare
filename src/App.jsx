@@ -388,7 +388,7 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
   const [comment, setComment] = useState("");
   const cat = CATEGORIES[task.category] || CATEGORIES.pemakanan;
   const roleR = ROLES[task.assignedTo] || ROLES.bersama;
-  const canToggle = task.assignedTo === currentRole || task.assignedTo === "bersama";
+  const canToggle = true;
   const assignLabel = task.assignedTo === "bersama" ? "Bersama" : (names[task.assignedTo] || task.assignedTo);
 
   function submit() {
@@ -400,7 +400,7 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
   return (
     <div style={{ background: task.done ? "#F8FAF8" : "#fff", border: `1.5px solid ${task.done ? "#D0E8D0" : cat.color}`, borderRadius: 16, marginBottom: 10, boxShadow: task.done ? "none" : "0 2px 10px rgba(0,0,0,0.05)", opacity: task.done ? 0.72 : 1, transition: "all 0.3s" }}>
       <div style={{ padding: "13px 14px", display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }} onClick={() => setOpen(o => !o)}>
-        <button onClick={e => { e.stopPropagation(); if (canToggle) onToggle(task.id); }} style={{ width: 28, height: 28, borderRadius: "50%", border: `2px solid ${canToggle ? cat.color : "#CCC"}`, background: task.done ? cat.color : "transparent", cursor: canToggle ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+        <button onClick={e => { e.stopPropagation(); onToggle(task.id); }} style={{ width: 28, height: 28, borderRadius: "50%", border: `2px solid ${cat.color}`, background: task.done ? cat.color : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
           {task.done && <span style={{ color: "#fff", fontSize: 14 }}>✓</span>}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1439,28 +1439,52 @@ export default function PantangCare() {
     return () => unsub();
   }, [inRoom, roomCode]);
 
-  // Auto-join dari URL
+  // Auto-restore session atau join dari URL
   useEffect(() => {
     const urlRoom = getUrlRoom();
-    if (urlRoom) {
-      loadRoom(urlRoom).then(data => {
-        if (data) { setRoomCode(urlRoom); applyState(data); setInRoom(true); }
+    if (urlRoom) return; // biar user handle join sendiri di lobby
+    const session = loadSession();
+    if (session && session.roomCode) {
+      loadRoom(session.roomCode).then(data => {
+        if (data) {
+          setRoomCode(session.roomCode);
+          setRole(session.role || "suami");
+          applyState(data);
+          setOnboarded(true);
+          setInRoom(true);
+        } else {
+          clearSession();
+        }
       });
     }
   }, []);
 
-  async function handleCreate() {
-    const code = genRoomCode();
+  async function handleCreate(code, userRole, userName, tarikhBersalin, jenisBersalin) {
+    const newNames = {
+      suami: userRole === "suami" ? userName : "Suami",
+      isteri: userRole === "isteri" ? userName : "Isteri",
+      tarikhBersalin: tarikhBersalin || "",
+      jenisBersalin: jenisBersalin || "normal",
+    };
     setRoomCode(code);
-    await saveRoom(code, packState());
+    setRole(userRole);
+    setNames(newNames);
+    setOnboarded(true);
+    saveSession(code, userRole, userName);
+    await saveRoom(code, { ...packState(), names: newNames, onboarded: true });
     setInRoom(true);
-    setShowShare(true);
   }
 
-  function handleJoin(code, data) {
+  function handleJoin(code, data, userRole, userName) {
+    const updatedNames = { ...(data.names || {}), [userRole]: userName };
     setRoomCode(code);
-    applyState(data);
+    setRole(userRole);
+    setNames(updatedNames);
+    applyState({ ...data, names: updatedNames, onboarded: true });
+    setOnboarded(true);
+    saveSession(code, userRole, userName);
     setInRoom(true);
+    setTimeout(() => saveRoom(code, { ...data, names: updatedNames, onboarded: true }), 600);
   }
 
   if (!inRoom) return <RoomLobby onCreate={handleCreate} onJoin={handleJoin} />;
@@ -1522,13 +1546,16 @@ export default function PantangCare() {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 11, color: "#A8D5BC", letterSpacing: "0.1em", textTransform: "uppercase" }}>Log masuk sebagai</div>
-            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
-              {["suami","isteri"].map(r => (
-                <button key={r} onClick={() => setRole(r)} style={{ padding: "5px 14px", borderRadius: 20, border: "none", background: role === r ? "#fff" : "rgba(255,255,255,0.15)", color: role === r ? "#2D6A4F" : "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                  {ROLES[r].avatar} {names[r]}
-                </button>
-              ))}
+            <div style={{ fontSize: 10, color: "#A8D5BC", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Log masuk sebagai</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+                {ROLES[role]?.avatar}
+              </div>
+              <div>
+                <div style={{ color:"#fff", fontWeight:900, fontSize:16 }}>{names[role]}</div>
+                <div style={{ color:"#A8D5BC", fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>{role}</div>
+              </div>
+              <span style={{ fontSize:9, fontWeight:800, background:"#FFD166", color:"#1A2E1A", borderRadius:6, padding:"2px 7px", letterSpacing:"0.05em" }}>BETA</span>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
