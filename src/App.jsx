@@ -10,6 +10,13 @@ function genRoomCode() {
   return code;
 }
 
+// Firebase converts arrays to objects — this converts them back
+function toArr(val) {
+  if (Array.isArray(val)) return val;
+  if (val && typeof val === "object") return Object.values(val);
+  return [];
+}
+
 async function saveRoom(roomCode, data) {
   try {
     await set(ref(db, "rooms/" + roomCode), { ...data, _ts: Date.now() });
@@ -1382,23 +1389,23 @@ export default function PantangCare() {
   function applyState(data) {
     if (!data) return;
     if (data.names) setNames(data.names);
-    if (data.day != null) setDay(data.day);
-    if (Array.isArray(data.tasks)) setTasks(data.tasks);
-    if (Array.isArray(data.czerTaskState)) setCzerTaskState(data.czerTaskState);
-    if (Array.isArray(data.menu)) setMenu(data.menu);
-    if (Array.isArray(data.log)) setLog(data.log);
-    if (Array.isArray(data.bidan)) setBidan(data.bidan);
-    if (data.supps && typeof data.supps === "object") setSupps({
-      isteri: Array.isArray(data.supps.isteri) ? data.supps.isteri : [],
-      suami: Array.isArray(data.supps.suami) ? data.supps.suami : [],
+    if (data.day != null) setDay(Number(data.day));
+    if (data.tasks != null) setTasks(toArr(data.tasks).map(t => ({...t, comments: toArr(t.comments)})));
+    if (data.czerTaskState != null) setCzerTaskState(toArr(data.czerTaskState).map(t => ({...t, comments: toArr(t.comments)})));
+    if (data.menu != null) setMenu(toArr(data.menu).map(m => ({...m, komen: toArr(m.komen), bahan: toArr(m.bahan)})));
+    if (data.log != null) setLog(toArr(data.log));
+    if (data.bidan != null) setBidan(toArr(data.bidan));
+    if (data.supps) setSupps({
+      isteri: toArr(data.supps.isteri),
+      suami: toArr(data.supps.suami),
     });
-    if (Array.isArray(data.bidanChecklist)) setBidanChecklist(data.bidanChecklist);
-    if (data.susu && typeof data.susu === "object") setSusu({
-      perahanLog: Array.isArray(data.susu.perahanLog) ? data.susu.perahanLog : [],
-      menyusuLog: Array.isArray(data.susu.menyusuLog) ? data.susu.menyusuLog : [],
+    if (data.bidanChecklist != null) setBidanChecklist(toArr(data.bidanChecklist));
+    if (data.susu) setSusu({
+      perahanLog: toArr(data.susu.perahanLog),
+      menyusuLog: toArr(data.susu.menyusuLog),
       jenisSusu: data.susu.jenisSusu || "breastfeed",
     });
-    if (data.onboarded) setOnboarded(data.onboarded);
+    if (data.onboarded != null) setOnboarded(data.onboarded);
   }
 
   // Auto-save setiap kali state berubah (debounced 2s)
