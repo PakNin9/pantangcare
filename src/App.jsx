@@ -565,6 +565,13 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
             <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, color: roleR.color, background: roleR.bg }}>{assignLabel}</span>
             {task.comments.length > 0 && <span style={{ fontSize: 11, color: "#AAA" }}>💬 {task.comments.length}</span>}
           </div>
+          {task.done && task.completedBy && (
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:4 }}>
+              <span style={{ fontSize:10, color:"#2D6A4F", background:"#EAF4EC", borderRadius:10, padding:"2px 8px", fontWeight:600 }}>
+                ✓ Siap oleh {names[task.completedBy] || task.completedBy}{task.completedAt ? ` · ${task.completedAt}` : ""}
+              </span>
+            </div>
+          )}
         </div>
         <span style={{ fontSize: 11, color: "#CCC", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}>▼</span>
       </div>
@@ -1653,12 +1660,18 @@ export default function PantangCare() {
   const allBidan = isCzer ? [...safeBidan, ...CZER_NOTA_BIDAN_TAMBAHAN] : safeBidan;
   const allPantangLarang = isCzer ? [...PANTANG_LARANG, ...CZER_PANTANG_TAMBAHAN] : PANTANG_LARANG;
 
+  // Czer tasks have fixed IDs 901-906
+  const CZER_IDS = [901, 902, 903, 904, 905, 906];
   function handleToggle(id) {
-    if (id >= 900) setCzerTaskState(ts => ts.map(x => x.id===id?{...x,done:!x.done}:x));
-    else setTasks(ts => ts.map(x => x.id===id?{...x,done:!x.done}:x));
+    const now = new Date().toLocaleTimeString("ms-MY", { hour:"2-digit", minute:"2-digit" });
+    const updater = x => x.id !== id ? x : x.done
+      ? { ...x, done: false, completedBy: null, completedAt: null }
+      : { ...x, done: true, completedBy: role, completedAt: now };
+    if (CZER_IDS.includes(id)) setCzerTaskState(ts => ts.map(updater));
+    else setTasks(ts => ts.map(updater));
   }
   function handleComment(id, c) {
-    if (id >= 900) setCzerTaskState(ts => ts.map(x => x.id===id?{...x,comments:[...x.comments,c]}:x));
+    if (CZER_IDS.includes(id)) setCzerTaskState(ts => ts.map(x => x.id===id?{...x,comments:[...x.comments,c]}:x));
     else setTasks(ts => ts.map(x => x.id===id?{...x,comments:[...x.comments,c]}:x));
   }
 
