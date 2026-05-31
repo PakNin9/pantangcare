@@ -212,58 +212,191 @@ function ReminderBadge({ time }) {
 
 // ─── ROOM LOBBY ──────────────────────────────────────────────────────────────
 function RoomLobby({ onCreate, onJoin }) {
-  const [mode, setMode] = useState(null);
+  const [screen, setScreen] = useState("home"); // home | create_role | create_name | create_details | create_share | join
+  const [role, setRole] = useState("");
+  const [nama, setNama] = useState("");
+  const [tarikh, setTarikh] = useState("");
+  const [jenis, setJenis] = useState("normal");
+  const [code, setCode] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [joinNama, setJoinNama] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  async function tryJoin() {
-    const code = joinCode.trim().toUpperCase();
-    if (!code) { setErr("Sila masukkan Room Code."); return; }
-    setLoading(true); setErr("");
-    const data = await loadRoom(code);
-    setLoading(false);
-    if (!data) { setErr("Room Code tidak dijumpai. Minta suami/isteri share code dulu."); return; }
-    onJoin(code, data);
+  // Step: pilih role
+  function pickRole(r) { setRole(r); setScreen("create_name"); }
+
+  // Step: isi nama
+  function submitNama() {
+    if (!nama.trim()) return;
+    setScreen("create_details");
   }
 
-  return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#1A2E1A 0%,#2D6A4F 60%,#40916C 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:28, fontFamily:"Georgia,serif" }}>
-      <div style={{ fontSize:52, marginBottom:6 }}>🌿</div>
-      <h1 style={{ color:"#fff", fontSize:28, fontWeight:900, marginBottom:4, textAlign:"center" }}>PantangCare</h1>
-      <p style={{ color:"#95D5B2", fontSize:14, marginBottom:36, textAlign:"center" }}>Pengurusan pantang bersama suami isteri 💚</p>
+  // Step: details → jana code
+  async function submitDetails() {
+    setLoading(true);
+    const newCode = genRoomCode();
+    setCode(newCode);
+    setLoading(false);
+    setScreen("create_share");
+  }
 
-      {!mode && (
-        <div style={{ width:"100%", maxWidth:340 }}>
-          <button onClick={() => onCreate()} style={{ width:"100%", padding:18, borderRadius:18, border:"none", background:"#fff", color:"#2D6A4F", fontWeight:900, fontSize:16, cursor:"pointer", marginBottom:12, fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.2)" }}>
+  // Step: confirm → masuk apps
+  function confirmCreate() {
+    onCreate(code, role, nama.trim(), tarikh, jenis);
+  }
+
+  // Join room
+  async function tryJoin() {
+    const c = joinCode.trim().toUpperCase();
+    if (!c) { setErr("Sila masukkan Room Code."); return; }
+    if (!joinNama.trim()) { setErr("Sila masukkan nama anda."); return; }
+    setLoading(true); setErr("");
+    const data = await loadRoom(c);
+    setLoading(false);
+    if (!data) { setErr("Room Code tidak dijumpai. Minta pasangan share code dulu."); return; }
+    const existingRole = (data.names && data.names.suami && data.names.suami !== "Suami") ? "isteri" : "suami";
+    onJoin(c, data, existingRole, joinNama.trim());
+  }
+
+  function copyCode() {
+    try { navigator.clipboard.writeText(code); } catch(e) {}
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+
+  const cardStyle = { background:"#fff", borderRadius:24, padding:26, width:"100%", maxWidth:340, boxShadow:"0 8px 32px rgba(0,0,0,0.2)" };
+  const btnPrimary = { width:"100%", padding:14, borderRadius:14, border:"none", background:"linear-gradient(135deg,#2D6A4F,#40916C)", color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit", marginTop:14 };
+  const btnBack = { width:"100%", padding:8, marginTop:8, border:"none", background:"transparent", color:"#AAA", fontSize:13, cursor:"pointer", fontFamily:"inherit" };
+  const inputS = { width:"100%", border:"2px solid #E0E8E0", borderRadius:12, padding:"12px 16px", fontSize:15, outline:"none", boxSizing:"border-box", fontFamily:"Georgia,serif", color:"#333" };
+
+  const qrUrl = code ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(buildShareUrl(code))}` : null;
+
+  return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#1A2E1A 0%,#2D6A4F 60%,#40916C 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Georgia,serif" }}>
+      <div style={{ fontSize:48, marginBottom:6 }}>🌿</div>
+      <h1 style={{ color:"#fff", fontSize:26, fontWeight:900, marginBottom:4, textAlign:"center" }}>PantangCare</h1>
+      <p style={{ color:"#95D5B2", fontSize:13, marginBottom:28, textAlign:"center" }}>Pengurusan pantang bersama suami isteri 💚</p>
+
+      {/* HOME */}
+      {screen === "home" && (
+        <div style={{ width:"100%", maxWidth:320 }}>
+          <button onClick={() => setScreen("create_role")} style={{ width:"100%", padding:16, borderRadius:18, border:"none", background:"#fff", color:"#2D6A4F", fontWeight:900, fontSize:16, cursor:"pointer", marginBottom:10, fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.2)" }}>
             ✨ Buat Room Baru
           </button>
-          <button onClick={() => setMode("join")} style={{ width:"100%", padding:18, borderRadius:18, border:"2px solid rgba(255,255,255,0.4)", background:"transparent", color:"#fff", fontWeight:800, fontSize:16, cursor:"pointer", fontFamily:"inherit" }}>
+          <button onClick={() => setScreen("join")} style={{ width:"100%", padding:16, borderRadius:18, border:"2px solid rgba(255,255,255,0.4)", background:"transparent", color:"#fff", fontWeight:800, fontSize:16, cursor:"pointer", fontFamily:"inherit" }}>
             🔗 Masuk Room Sedia Ada
           </button>
-          <p style={{ color:"#95D5B2", fontSize:12, textAlign:"center", marginTop:20, lineHeight:1.7 }}>
-            Suami buat room baru → share Room Code → isteri masuk guna code yang sama
+          <p style={{ color:"#95D5B2", fontSize:12, textAlign:"center", marginTop:16, lineHeight:1.7 }}>
+            Suami buat room baru → share code → isteri masuk guna code yang sama
           </p>
         </div>
       )}
 
-      {mode === "join" && (
-        <div style={{ background:"#fff", borderRadius:24, padding:28, width:"100%", maxWidth:340, boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }}>
+      {/* CREATE: PILIH ROLE */}
+      {screen === "create_role" && (
+        <div style={cardStyle}>
+          <div style={{ textAlign:"center", marginBottom:18 }}>
+            <div style={{ fontSize:36 }}>👤</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A" }}>Anda siapa?</div>
+          </div>
+          <div style={{ display:"flex", gap:12, marginBottom:8 }}>
+            {[{r:"suami",icon:"👨",label:"Suami"},{r:"isteri",icon:"👩",label:"Isteri"}].map(opt => (
+              <button key={opt.r} onClick={() => pickRole(opt.r)}
+                style={{ flex:1, padding:16, borderRadius:16, border:"2px solid #E0E8E0", background:"#FAFCFA", cursor:"pointer", fontFamily:"inherit" }}>
+                <div style={{ fontSize:32, marginBottom:6 }}>{opt.icon}</div>
+                <div style={{ fontWeight:800, fontSize:15, color:"#1A2E1A" }}>{opt.label}</div>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setScreen("home")} style={btnBack}>← Kembali</button>
+        </div>
+      )}
+
+      {/* CREATE: NAMA */}
+      {screen === "create_name" && (
+        <div style={cardStyle}>
+          <div style={{ textAlign:"center", marginBottom:18 }}>
+            <div style={{ fontSize:36 }}>{role==="suami"?"👨":"👩"}</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A" }}>Nama anda?</div>
+          </div>
+          <input autoFocus value={nama} onChange={e => setNama(e.target.value)}
+            onKeyDown={e => e.key==="Enter" && submitNama()}
+            placeholder={role==="suami"?"Contoh: Ahmad Faris":"Contoh: Nurul Aisyah"}
+            style={inputS} />
+          <button onClick={submitNama} style={{ ...btnPrimary, opacity: nama.trim() ? 1 : 0.5 }}>Seterusnya →</button>
+          <button onClick={() => setScreen("create_role")} style={btnBack}>← Kembali</button>
+        </div>
+      )}
+
+      {/* CREATE: DETAILS */}
+      {screen === "create_details" && (
+        <div style={cardStyle}>
+          <div style={{ textAlign:"center", marginBottom:16 }}>
+            <div style={{ fontSize:36 }}>🍼</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A" }}>Maklumat Pantang</div>
+          </div>
+          <div style={{ fontSize:12, color:"#888", marginBottom:5 }}>Tarikh bersalin</div>
+          <input type="date" value={tarikh} onChange={e => setTarikh(e.target.value)} style={{ ...inputS, marginBottom:14 }} />
+          <div style={{ fontSize:12, color:"#888", marginBottom:8 }}>Jenis bersalin</div>
+          <div style={{ display:"flex", gap:10, marginBottom:6 }}>
+            {[{k:"normal",icon:"🌸",label:"Normal"},{k:"czer",icon:"🏥",label:"Caesar"}].map(opt => (
+              <button key={opt.k} onClick={() => setJenis(opt.k)}
+                style={{ flex:1, padding:12, borderRadius:14, border:`2px solid ${jenis===opt.k?"#2D6A4F":"#E0E8E0"}`, background:jenis===opt.k?"#EAF4EC":"#FAFCFA", cursor:"pointer", fontFamily:"inherit" }}>
+                <div style={{ fontSize:26, marginBottom:4 }}>{opt.icon}</div>
+                <div style={{ fontWeight:700, fontSize:13, color:jenis===opt.k?"#2D6A4F":"#555" }}>{opt.label}</div>
+              </button>
+            ))}
+          </div>
+          <button onClick={submitDetails} disabled={loading}
+            style={{ ...btnPrimary, opacity:loading?0.6:1 }}>
+            {loading ? "Menjana..." : "Jana Room Code →"}
+          </button>
+          <button onClick={() => setScreen("create_name")} style={btnBack}>← Kembali</button>
+        </div>
+      )}
+
+      {/* CREATE: SHARE */}
+      {screen === "create_share" && code && (
+        <div style={{ ...cardStyle, textAlign:"center" }}>
+          <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A", marginBottom:4 }}>Room berjaya dicipta! 🎉</div>
+          <div style={{ fontSize:13, color:"#888", marginBottom:14 }}>Kongsi kod ini kepada pasangan</div>
+          {qrUrl && <img src={qrUrl} alt="QR" width={140} height={140} style={{ borderRadius:12, border:"2px solid #E0E8E0", marginBottom:12 }} />}
+          <div style={{ background:"#EAF4EC", borderRadius:14, padding:14, marginBottom:14 }}>
+            <div style={{ fontSize:11, color:"#888", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.08em" }}>Room Code</div>
+            <div style={{ fontSize:26, fontWeight:900, color:"#2D6A4F", letterSpacing:"0.2em", fontFamily:"monospace" }}>{code}</div>
+            <button onClick={copyCode} style={{ marginTop:8, background:"#2D6A4F", color:"#fff", border:"none", borderRadius:10, padding:"5px 14px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              {copied ? "✓ Disalin!" : "Salin Code"}
+            </button>
+          </div>
+          <button onClick={confirmCreate} style={{ ...btnPrimary, marginTop:0 }}>
+            Mula Guna Apps →
+          </button>
+        </div>
+      )}
+
+      {/* JOIN */}
+      {screen === "join" && (
+        <div style={cardStyle}>
           <div style={{ textAlign:"center", marginBottom:16 }}>
             <div style={{ fontSize:36 }}>🔗</div>
             <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A" }}>Masuk Room</div>
-            <div style={{ fontSize:13, color:"#888", marginTop:4 }}>Masukkan Room Code dari pasangan</div>
           </div>
+          <div style={{ fontSize:12, color:"#888", marginBottom:5 }}>Room Code dari pasangan</div>
           <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setErr(""); }}
-            onKeyDown={e => e.key==="Enter" && tryJoin()}
             placeholder="Contoh: PC-AB3X7Y"
-            style={{ width:"100%", border:"2px solid #E0E8E0", borderRadius:12, padding:"12px 16px", fontSize:18, outline:"none", boxSizing:"border-box", fontFamily:"monospace", textAlign:"center", letterSpacing:"0.15em", color:"#1A2E1A", marginBottom:10 }} />
-          {err && <div style={{ fontSize:12, color:"#C0392B", marginBottom:10, textAlign:"center" }}>{err}</div>}
+            style={{ ...inputS, fontFamily:"monospace", textAlign:"center", letterSpacing:"0.15em", fontSize:18, marginBottom:10 }} />
+          <div style={{ fontSize:12, color:"#888", marginBottom:5 }}>Nama anda</div>
+          <input value={joinNama} onChange={e => setJoinNama(e.target.value)}
+            onKeyDown={e => e.key==="Enter" && tryJoin()}
+            placeholder="Masukkan nama anda"
+            style={{ ...inputS, marginBottom:10 }} />
+          {err && <div style={{ fontSize:12, color:"#C0392B", marginBottom:8, textAlign:"center" }}>{err}</div>}
           <button onClick={tryJoin} disabled={loading}
-            style={{ width:"100%", padding:14, borderRadius:14, border:"none", background:"linear-gradient(135deg,#2D6A4F,#40916C)", color:"#fff", fontWeight:800, fontSize:15, cursor:loading?"wait":"pointer", fontFamily:"inherit", opacity:loading?0.7:1 }}>
+            style={{ ...btnPrimary, marginTop:6, opacity:loading?0.7:1 }}>
             {loading ? "Sedang semak..." : "Masuk Room →"}
           </button>
-          <button onClick={() => { setMode(null); setErr(""); }} style={{ width:"100%", padding:10, marginTop:10, borderRadius:14, border:"none", background:"transparent", color:"#AAA", fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>← Kembali</button>
+          <button onClick={() => { setScreen("home"); setErr(""); }} style={btnBack}>← Kembali</button>
         </div>
       )}
     </div>
