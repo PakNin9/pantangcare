@@ -1449,25 +1449,8 @@ export default function PantangCare() {
     return () => unsub();
   }, [inRoom, roomCode]);
 
-  // Auto-restore session atau join dari URL
-  useEffect(() => {
-    const urlRoom = getUrlRoom();
-    if (urlRoom) return; // biar user handle join sendiri di lobby
-    const session = loadSession();
-    if (session && session.roomCode) {
-      loadRoom(session.roomCode).then(data => {
-        if (data) {
-          setRoomCode(session.roomCode);
-          setRole(session.role || "suami");
-          applyState(data);
-          setOnboarded(true);
-          setInRoom(true);
-        } else {
-          clearSession();
-        }
-      });
-    }
-  }, []);
+  // Always start from lobby for testing — no auto-restore
+  useEffect(() => { clearSession(); }, []);
 
   async function handleCreate(code, userRole, userName, tarikhBersalin, jenisBersalin) {
     const newNames = {
