@@ -1380,16 +1380,24 @@ export default function PantangCare() {
     return { onboarded, names, day, tasks, czerTaskState, menu, log, bidan, supps, bidanChecklist, susu };
   }
   function applyState(data) {
+    if (!data) return;
     if (data.names) setNames(data.names);
     if (data.day != null) setDay(data.day);
-    if (data.tasks) setTasks(data.tasks);
-    if (data.czerTaskState) setCzerTaskState(data.czerTaskState);
-    if (data.menu) setMenu(data.menu);
-    if (data.log) setLog(data.log);
-    if (data.bidan) setBidan(data.bidan);
-    if (data.supps) setSupps(data.supps);
-    if (data.bidanChecklist) setBidanChecklist(data.bidanChecklist);
-    if (data.susu) setSusu(data.susu);
+    if (Array.isArray(data.tasks)) setTasks(data.tasks);
+    if (Array.isArray(data.czerTaskState)) setCzerTaskState(data.czerTaskState);
+    if (Array.isArray(data.menu)) setMenu(data.menu);
+    if (Array.isArray(data.log)) setLog(data.log);
+    if (Array.isArray(data.bidan)) setBidan(data.bidan);
+    if (data.supps && typeof data.supps === "object") setSupps({
+      isteri: Array.isArray(data.supps.isteri) ? data.supps.isteri : [],
+      suami: Array.isArray(data.supps.suami) ? data.supps.suami : [],
+    });
+    if (Array.isArray(data.bidanChecklist)) setBidanChecklist(data.bidanChecklist);
+    if (data.susu && typeof data.susu === "object") setSusu({
+      perahanLog: Array.isArray(data.susu.perahanLog) ? data.susu.perahanLog : [],
+      menyusuLog: Array.isArray(data.susu.menyusuLog) ? data.susu.menyusuLog : [],
+      jenisSusu: data.susu.jenisSusu || "breastfeed",
+    });
     if (data.onboarded) setOnboarded(data.onboarded);
   }
 
@@ -1451,8 +1459,11 @@ export default function PantangCare() {
   if (!inRoom) return <RoomLobby onCreate={handleCreate} onJoin={handleJoin} />;
 
   const isCzer = names.jenisBersalin === "czer";
-  const allTasks = isCzer ? [...tasks, ...czerTaskState] : tasks;
-  const allBidan = isCzer ? [...bidan, ...CZER_NOTA_BIDAN_TAMBAHAN] : bidan;
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeCzer = Array.isArray(czerTaskState) ? czerTaskState : [];
+  const safeBidan = Array.isArray(bidan) ? bidan : [];
+  const allTasks = isCzer ? [...safeTasks, ...safeCzer] : safeTasks;
+  const allBidan = isCzer ? [...safeBidan, ...CZER_NOTA_BIDAN_TAMBAHAN] : safeBidan;
   const allPantangLarang = isCzer ? [...PANTANG_LARANG, ...CZER_PANTANG_TAMBAHAN] : PANTANG_LARANG;
 
   function handleToggle(id) {
@@ -1466,7 +1477,7 @@ export default function PantangCare() {
 
   if (!onboarded) return <Onboarding onDone={(n) => { setNames({ suami: n.suami, isteri: n.isteri, tarikhBersalin: n.tarikhBersalin, jenisBersalin: n.jenisBersalin || "normal" }); setOnboarded(true); }} />;
 
-  const visible = allTasks.filter(t => {
+  const visible = (allTasks || []).filter(t => {
     if (filter === "semua") return true;
     if (filter === "saya") return t.assignedTo === role || t.assignedTo === "bersama";
     if (filter === "selesai") return t.done;
