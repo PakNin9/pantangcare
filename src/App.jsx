@@ -327,16 +327,15 @@ function Onboarding({ onDone }) {
             Pilihan ini penting — apps akan tambahkan penjagaan khas mengikut jenis bersalin.
           </p>
           {[
-            { key: "normal", icon: "🌸", title: "Bersalin Normal", desc: "Kelahiran semula jadi melalui saluran faraj" },
-            { key: "czer",   icon: "🏥", title: "Bersalin Caesar (Czer)", desc: "Pembedahan cesarean — ada luka czer yang perlu dijaga khas" },
+            { key: "normal", icon: "🌸", title: "Bersalin Normal", desc: "" },
+            { key: "czer", icon: "🏥", title: "Bersalin Caesar (Czer)", desc: "" },
           ].map(opt => (
             <button key={opt.key} onClick={() => setNames(n => ({ ...n, jenisBersalin: opt.key }))}
               style={{ padding: "14px 16px", borderRadius: 16, border: `2px solid ${names.jenisBersalin === opt.key ? "#2D6A4F" : "#E0E8E0"}`, background: names.jenisBersalin === opt.key ? "#EAF4EC" : "#FAFCFA", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "inherit" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 28 }}>{opt.icon}</span>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: names.jenisBersalin === opt.key ? "#2D6A4F" : "#1A2E1A" }}>{opt.title}</div>
-                  <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: names.jenisBersalin === opt.key ? "#2D6A4F" : "#1A2E1A" }}>{opt.title}</div>
                 </div>
                 {names.jenisBersalin === opt.key && <span style={{ marginLeft: "auto", fontSize: 18, color: "#2D6A4F" }}>✓</span>}
               </div>
