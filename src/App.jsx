@@ -45,6 +45,16 @@ function getUrlRoom() {
   catch(e) { return null; }
 }
 
+function saveSession(roomCode, role, name) {
+  try { localStorage.setItem("pc_session", JSON.stringify({ roomCode, role, name, ts: Date.now() })); } catch(e) {}
+}
+function loadSession() {
+  try { var r = localStorage.getItem("pc_session"); return r ? JSON.parse(r) : null; } catch(e) { return null; }
+}
+function clearSession() {
+  try { localStorage.removeItem("pc_session"); } catch(e) {}
+}
+
 
 
 
