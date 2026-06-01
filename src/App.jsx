@@ -523,10 +523,6 @@ function ShareModal({ roomCode, onClose }) {
             {copied ? "✓ Disalin!" : "Salin Code"}
           </button>
         </div>
-        <div style={{ background:"#EAF4EC", border:"1px solid #95D5B2", borderRadius:12, padding:"10px 14px", fontSize:12, color:"#1A5276", lineHeight:1.7, marginBottom:12 }}>
-          ✅ Sync realtime via Firebase — berfungsi antara device berbeza.<br/>
-          ⚡ Data update dalam masa 1–2 saat bila pasangan buat perubahan.
-        </div>
 
         {/* Save reminder */}
         <div style={{ background:"#FFF8E8", border:"1px solid #FFE0A0", borderRadius:12, padding:"10px 14px", marginBottom:14 }}>
@@ -536,13 +532,10 @@ function ShareModal({ roomCode, onClose }) {
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={() => {
-              const msg = `PantangCare Room Code saya: ${roomCode}
-Link: ${url}
-
-Simpan code ini untuk log masuk semula.`;
-              try { navigator.clipboard.writeText(msg); alert("✅ Disalin! Tampal dalam WhatsApp atau Notes anda."); } catch(e) {}
-            }} style={{ flex:1, padding:"8px", borderRadius:10, border:"1.5px solid #F0A500", background:"#FFFBEB", color:"#856404", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-              📋 Salin untuk WhatsApp
+              const waMsg = `Saya jemput awak masuk ke Bilik Pantang kita 🌿%0A%0ACode: *${roomCode}*%0ALink: ${url}%0A%0ASkan QR atau masukkan code di atas.`;
+              window.open(`https://wa.me/?text=${waMsg}`, "_blank");
+            }} style={{ flex:1, padding:"10px 8px", borderRadius:10, border:"1.5px solid #25D366", background:"#F0FDF4", color:"#128C7E", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              💚 Kongsi via WhatsApp
             </button>
             <button onClick={() => {
               const msg = `PantangCare
@@ -552,7 +545,7 @@ Link: ${url}`;
               a.href = `sms:?body=${encodeURIComponent(msg)}`;
               a.click();
             }} style={{ flex:1, padding:"8px", borderRadius:10, border:"1.5px solid #2D6A4F", background:"#EAF4EC", color:"#2D6A4F", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-              💬 SMS kepada diri sendiri
+              💬 SMS diri sendiri
             </button>
           </div>
         </div>
@@ -1902,12 +1895,9 @@ export default function PantangCare() {
   }
 
   function handleLogout() {
-    clearSession();
+    // Keep session intact — welcome_back screen will show on next open
+    // Just set inRoom=false to go back to lobby
     setInRoom(false);
-    setOnboarded(false);
-    setRoomCode(null);
-    setRole("suami");
-    setNames({ suami: "Suami", isteri: "Isteri", tarikhBersalin: "", jenisBersalin: "normal" });
   }
 
   if (!inRoom) return <RoomLobby onCreate={handleCreate} onJoin={handleJoin} />;
@@ -1976,8 +1966,8 @@ export default function PantangCare() {
             <button onClick={() => setShowShare(true)} style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", color:"#fff", borderRadius:12, padding:"4px 10px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
               🔗 Kongsi
             </button>
-            <button onClick={handleLogout} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#A8D5BC", borderRadius:12, padding:"4px 8px", fontSize:10, cursor:"pointer", fontFamily:"inherit" }} title="Tukar akaun">
-              ↩ Tukar
+            <button onClick={handleLogout} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#A8D5BC", borderRadius:12, padding:"4px 8px", fontSize:10, cursor:"pointer", fontFamily:"inherit" }} title="Keluar">
+              ↩ Keluar
             </button>
           </div>
         </div>
