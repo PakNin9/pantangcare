@@ -523,10 +523,40 @@ function ShareModal({ roomCode, onClose }) {
             {copied ? "✓ Disalin!" : "Salin Code"}
           </button>
         </div>
-        <div style={{ background:"#EAF4EC", border:"1px solid #95D5B2", borderRadius:12, padding:"10px 14px", fontSize:12, color:"#1A5276", lineHeight:1.7, marginBottom:16 }}>
+        <div style={{ background:"#EAF4EC", border:"1px solid #95D5B2", borderRadius:12, padding:"10px 14px", fontSize:12, color:"#1A5276", lineHeight:1.7, marginBottom:12 }}>
           ✅ Sync realtime via Firebase — berfungsi antara device berbeza.<br/>
           ⚡ Data update dalam masa 1–2 saat bila pasangan buat perubahan.
         </div>
+
+        {/* Save reminder */}
+        <div style={{ background:"#FFF8E8", border:"1px solid #FFE0A0", borderRadius:12, padding:"10px 14px", marginBottom:14 }}>
+          <div style={{ fontSize:12, fontWeight:800, color:"#856404", marginBottom:6 }}>⚠️ Simpan Room Code Anda</div>
+          <div style={{ fontSize:11, color:"#856404", lineHeight:1.6, marginBottom:8 }}>
+            Jika apps dipadam atau browser data diclear, anda perlukan code ini untuk masuk semula. Simpan di tempat selamat.
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={() => {
+              const msg = `PantangCare Room Code saya: ${roomCode}
+Link: ${url}
+
+Simpan code ini untuk log masuk semula.`;
+              try { navigator.clipboard.writeText(msg); alert("✅ Disalin! Tampal dalam WhatsApp atau Notes anda."); } catch(e) {}
+            }} style={{ flex:1, padding:"8px", borderRadius:10, border:"1.5px solid #F0A500", background:"#FFFBEB", color:"#856404", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              📋 Salin untuk WhatsApp
+            </button>
+            <button onClick={() => {
+              const msg = `PantangCare
+Room Code: ${roomCode}
+Link: ${url}`;
+              const a = document.createElement("a");
+              a.href = `sms:?body=${encodeURIComponent(msg)}`;
+              a.click();
+            }} style={{ flex:1, padding:"8px", borderRadius:10, border:"1.5px solid #2D6A4F", background:"#EAF4EC", color:"#2D6A4F", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              💬 SMS kepada diri sendiri
+            </button>
+          </div>
+        </div>
+
         <button onClick={onClose} style={{ width:"100%", padding:13, borderRadius:14, border:"none", background:"#1A2E1A", color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit" }}>Tutup</button>
       </div>
     </div>
@@ -649,7 +679,7 @@ function RecurModal({ onSelect, onClose }) {
 }
 
 // ─── TASK CARD ────────────────────────────────────────────────────────────────
-function TaskCard({ task, currentRole, names, onToggle, onComment }) {
+function TaskCard({ task, currentRole, names, onToggle, onComment, onDelete }) {
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
   const cat = CATEGORIES[task.category] || CATEGORIES.pemakanan;
@@ -676,7 +706,15 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
           <div style={{ display: "flex", gap: 6, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
             <ReminderBadge time={task.time} />
             <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, color: roleR.color, background: roleR.bg }}>{assignLabel}</span>
-            {task.comments.length > 0 && <span style={{ fontSize: 11, color: "#AAA" }}>💬 {task.comments.length}</span>}
+            {task.comments.length > 0 && (() => {
+              const lastComment = task.comments[task.comments.length - 1];
+              const hasNewFromPartner = lastComment && lastComment.by !== currentRole;
+              return (
+                <span style={{ fontSize: 11, color: hasNewFromPartner ? "#C0392B" : "#AAA", background: hasNewFromPartner ? "#FADDE1" : "transparent", borderRadius: 10, padding: hasNewFromPartner ? "1px 7px" : "0", fontWeight: hasNewFromPartner ? 700 : 400 }}>
+                  💬 {task.comments.length}{hasNewFromPartner ? " baru" : ""}
+                </span>
+              );
+            })()}
             {task.recur === "daily" && <span style={{ fontSize:10, color:"#2D6A4F", background:"#EAF4EC", borderRadius:10, padding:"1px 7px", fontWeight:600 }}>🔄 Harian</span>}
           </div>
           {task.done && task.completedBy && (
@@ -706,6 +744,12 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
             <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Tulis nota atau update..." style={{ flex: 1, border: "1.5px solid #E0E8E0", borderRadius: 20, padding: "7px 12px", fontSize: 13, outline: "none", background: "#FAFCFA", fontFamily: "inherit" }} />
             <button onClick={submit} style={{ background: "#2D6A4F", color: "#fff", border: "none", borderRadius: 20, padding: "7px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✓</button>
           </div>
+          {onDelete && (
+            <button onClick={() => { if(window.confirm("Padam tugas ini?")) onDelete(task.id); }}
+              style={{ width:"100%", marginTop:10, padding:"7px", borderRadius:10, border:"1.5px solid #FADDE1", background:"#FFF5F7", color:"#C0392B", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              🗑 Padam Tugas
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1601,8 +1645,13 @@ function Progress({ tasks, role, names, day, taskHistory = [] }) {
                 <div style={{ background:"#F5F5F5", borderRadius:6, height:6, overflow:"hidden", marginBottom: missed.length ? 8 : 0 }}>
                   <div style={{ height:"100%", width:`${pct}%`, background: pct===100?"#2D6A4F":"#F0A500", borderRadius:6 }} />
                 </div>
-                {missed.length > 0 && (
-                  <div style={{ fontSize:11, color:"#C0392B" }}>
+                {rec.tasks.some(t => t.missed) && (
+                  <div style={{ fontSize:11, color:"#888", fontStyle:"italic", marginTop:3 }}>
+                    📵 Hari ini apps tidak dibuka — data anggaran
+                  </div>
+                )}
+                {!rec.tasks.some(t => t.missed) && missed.length > 0 && (
+                  <div style={{ fontSize:11, color:"#C0392B", marginTop:3 }}>
                     ⚠️ Tertinggal: {missed.map(t => t.title).join(", ")}
                   </div>
                 )}
@@ -1774,31 +1823,53 @@ export default function PantangCare() {
     if (!inRoom) return;
     function checkReset() {
       const today = todayStr();
-      if (today !== lastResetDate) {
-        // Save yesterday's record to history
-        const snapshot = {
-          date: lastResetDate,
-          hari: day,
+      if (today === lastResetDate) return;
+
+      // Calculate how many days were missed
+      const lastDate = new Date(lastResetDate);
+      const todayDate = new Date(today);
+      lastDate.setHours(0,0,0,0);
+      todayDate.setHours(0,0,0,0);
+      const daysMissed = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+
+      const newRecords = [];
+
+      // Generate records for all missed days
+      for (let i = 0; i < daysMissed; i++) {
+        const missedDate = new Date(lastDate);
+        missedDate.setDate(missedDate.getDate() + i);
+        const missedDateStr = missedDate.toISOString().slice(0, 10);
+        const missedHari = calcHariPantang(names.tarikhBersalin) - (daysMissed - i);
+
+        newRecords.push({
+          date: missedDateStr,
+          hari: Math.max(1, missedHari),
           tasks: allTasks.map(t => ({
             id: t.id, title: t.title, assignedTo: t.assignedTo,
-            done: t.done, completedBy: t.completedBy || null, completedAt: t.completedAt || null
+            // Only last day has real data, missed days marked as not done
+            done: i === 0 ? t.done : false,
+            completedBy: i === 0 ? (t.completedBy || null) : null,
+            completedAt: i === 0 ? (t.completedAt || null) : null,
+            missed: i > 0, // flag hari yang tak ada data sebenar
           }))
-        };
-        setTaskHistory(h => [...h, snapshot]);
-        // Reset daily tasks
-        setTasks(ts => ts.map(t => t.recur === "daily"
-          ? { ...t, done: false, completedBy: null, completedAt: null }
-          : t
-        ));
-        setCzerTaskState(ts => ts.map(t => t.recur === "daily" || t.czerOnly
-          ? { ...t, done: false, completedBy: null, completedAt: null }
-          : t
-        ));
-        setLastResetDate(today);
+        });
       }
+
+      setTaskHistory(h => [...h, ...newRecords]);
+
+      // Reset daily tasks
+      setTasks(ts => ts.map(t => t.recur === "daily"
+        ? { ...t, done: false, completedBy: null, completedAt: null }
+        : t
+      ));
+      setCzerTaskState(ts => ts.map(t => (t.recur === "daily" || t.czerOnly)
+        ? { ...t, done: false, completedBy: null, completedAt: null }
+        : t
+      ));
+      setLastResetDate(today);
     }
     checkReset();
-    const interval = setInterval(checkReset, 60000); // check every minute
+    const interval = setInterval(checkReset, 60000);
     return () => clearInterval(interval);
   }, [inRoom, lastResetDate]);
 
@@ -1873,7 +1944,10 @@ export default function PantangCare() {
     if (filter === "belum") return !t.done;
     if (filter === "czer") return t.czerOnly === true;
     return true;
-  }).sort((a,b) => a.time.localeCompare(b.time));
+  }).sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return a.time.localeCompare(b.time);
+  });
 
   const TABS = [
     { key: "tasks",   icon: "📋", label: "Tugas" },
@@ -1909,7 +1983,7 @@ export default function PantangCare() {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 10, color: "#A8D5BC", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Log masuk sebagai</div>
+
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
                 {ROLES[role]?.avatar}
@@ -1922,11 +1996,11 @@ export default function PantangCare() {
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "#A8D5BC" }}>Hari Pantang</div>
+
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 3 }}>
               <span style={{ fontSize: 30, fontWeight: 900, color: "#fff" }}>{day}</span>
             </div>
-            <div style={{ fontSize: 11, color: "#A8D5BC" }}>hari pantang</div>
+
           </div>
         </div>
 
@@ -1975,7 +2049,12 @@ export default function PantangCare() {
             : visible.map(t => (
               <div key={t.id}>
                 {t.czerOnly && <div style={{ fontSize: 10, fontWeight: 800, color: "#9B2335", letterSpacing: "0.08em", marginBottom: 3, marginTop: 2, paddingLeft: 2 }}>🏥 KHAS CZER</div>}
-                <TaskCard task={t} currentRole={role} names={names} onToggle={handleToggle} onComment={handleComment} />
+                <TaskCard task={t} currentRole={role} names={names} onToggle={handleToggle} onComment={handleComment}
+                  onDelete={(id) => {
+                    const CZER_IDS = [901,902,903,904,905,906];
+                    if (CZER_IDS.includes(id)) setCzerTaskState(ts => ts.filter(x => x.id !== id));
+                    else setTasks(ts => ts.filter(x => x.id !== id));
+                  }} />
               </div>
             ))
           }
