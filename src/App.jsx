@@ -65,6 +65,23 @@ function getDeviceId() {
 }
 const DEVICE_ID = getDeviceId();
 
+// ─── HARI PANTANG CALCULATOR ──────────────────────────────────────────────────
+function calcHariPantang(tarikhBersalin) {
+  if (!tarikhBersalin) return 1;
+  try {
+    const start = new Date(tarikhBersalin);
+    const today = new Date();
+    start.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
+    const diff = Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(1, diff);
+  } catch(e) { return 1; }
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+
 
 
 
@@ -85,13 +102,13 @@ const ROLES = {
 };
 
 const INITIAL_TASKS = [
-  { id: 1, assignedTo: "isteri", category: "pemakanan", title: "Minum air halia merah", time: "07:00", desc: "Rebus halia merah, minum panas-panas sebelum sarapan", done: false, comments: [{ by: "suami", text: "Dah siapkan halia dalam periuk ya sayang 💚", time: "06:45" }] },
-  { id: 2, assignedTo: "suami",  category: "penjagaan", title: "Tukar lampin & mandikan baby", time: "08:00", desc: "Lap badan, tukar lampin, pakaikan baju baby", done: false, comments: [] },
-  { id: 3, assignedTo: "isteri", category: "senaman",   title: "Urut perut pantang", time: "10:00", desc: "Urut lembut mengikut arahan mak bidan, 15 minit", done: false, comments: [] },
-  { id: 4, assignedTo: "suami",  category: "pemakanan", title: "Masak bubur nasi + ikan haruan", time: "11:30", desc: "Bubur pekat untuk isteri, tambah halia dan bawang putih", done: true, comments: [{ by: "isteri", text: "Sedap sangat! Terima kasih abang ❤️", time: "12:10" }] },
-  { id: 5, assignedTo: "isteri", category: "rehat",     title: "Tidur tengah hari", time: "13:00", desc: "Rehat sekurang-kurangnya 1 jam. Jangan stress.", done: false, comments: [] },
-  { id: 6, assignedTo: "suami",  category: "penjagaan", title: "Susukan bayi (botol EBM)", time: "14:00", desc: "Ambil EBM dari peti, suamkan, susu baby", done: false, comments: [] },
-  { id: 7, assignedTo: "bersama",category: "perubatan", title: "Minum supplement Shaklee", time: "15:00", desc: "Isteri: Vivix + ESP. Suami: Vita-E + B-Complex", done: false, comments: [] },
+  { id: 1, assignedTo: "isteri", category: "pemakanan", title: "Minum air halia merah", time: "07:00", desc: "Rebus halia merah, minum panas-panas sebelum sarapan", done: false, comments: [], recur: "daily" },
+  { id: 2, assignedTo: "suami",  category: "penjagaan", title: "Tukar lampin & mandikan baby", time: "08:00", desc: "Lap badan, tukar lampin, pakaikan baju baby", done: false, comments: [], recur: "daily" },
+  { id: 3, assignedTo: "isteri", category: "senaman",   title: "Urut perut pantang", time: "10:00", desc: "Urut lembut mengikut arahan mak bidan, 15 minit", done: false, comments: [], recur: "daily" },
+  { id: 4, assignedTo: "suami",  category: "pemakanan", title: "Masak bubur nasi + ikan haruan", time: "11:30", desc: "Bubur pekat untuk isteri, tambah halia dan bawang putih", done: false, comments: [], recur: "daily" },
+  { id: 5, assignedTo: "isteri", category: "rehat",     title: "Tidur tengah hari", time: "13:00", desc: "Rehat sekurang-kurangnya 1 jam. Jangan stress.", done: false, comments: [], recur: "daily" },
+  { id: 6, assignedTo: "suami",  category: "penjagaan", title: "Susukan bayi (botol EBM)", time: "14:00", desc: "Ambil EBM dari peti, suamkan, susu baby", done: false, comments: [], recur: "daily" },
+  { id: 7, assignedTo: "bersama",category: "perubatan", title: "Minum supplement Shaklee", time: "15:00", desc: "Isteri: Vivix + ESP. Suami: Vita-E + B-Complex", done: false, comments: [], recur: "daily" },
 ];
 
 const INITIAL_MENU = [
@@ -222,17 +239,26 @@ function ReminderBadge({ time }) {
 
 // ─── ROOM LOBBY ──────────────────────────────────────────────────────────────
 function RoomLobby({ onCreate, onJoin }) {
-  const [screen, setScreen] = useState("home"); // home | create_role | create_name | create_details | create_share | join
+  // Check if user came via QR link or has saved session
+  const urlRoom = getUrlRoom();
+  const savedSession = loadSession();
+  const [screen, setScreen] = useState(
+    urlRoom ? "qr_join" :
+    (savedSession && savedSession.roomCode) ? "welcome_back" :
+    "home"
+  );
   const [role, setRole] = useState("");
   const [nama, setNama] = useState("");
   const [tarikh, setTarikh] = useState("");
   const [jenis, setJenis] = useState("normal");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(urlRoom || "");
   const [joinCode, setJoinCode] = useState("");
   const [joinNama, setJoinNama] = useState("");
+  const [qrJoinNama, setQrJoinNama] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const session = loadSession();
 
   // Step: pilih role
   function pickRole(r) { setRole(r); setScreen("create_name"); }
@@ -243,21 +269,17 @@ function RoomLobby({ onCreate, onJoin }) {
     setScreen("create_details");
   }
 
-  // Step: details → jana code
+  // Step: details → jana code dan terus masuk
   async function submitDetails() {
     setLoading(true);
     const newCode = genRoomCode();
     setCode(newCode);
     setLoading(false);
-    setScreen("create_share");
+    // Terus masuk tanpa tunjuk share screen
+    onCreate(newCode, role, nama.trim(), tarikh, jenis);
   }
 
-  // Step: confirm → masuk apps
-  function confirmCreate() {
-    onCreate(code, role, nama.trim(), tarikh, jenis);
-  }
-
-  // Join room
+  // Join room (manual code)
   async function tryJoin() {
     const c = joinCode.trim().toUpperCase();
     if (!c) { setErr("Sila masukkan Room Code."); return; }
@@ -270,9 +292,34 @@ function RoomLobby({ onCreate, onJoin }) {
     onJoin(c, data, existingRole, joinNama.trim());
   }
 
+  // Join room via QR (nama sahaja diperlukan)
+  async function tryQrJoin() {
+    if (!qrJoinNama.trim()) { setErr("Sila masukkan nama anda."); return; }
+    setLoading(true); setErr("");
+    const data = await loadRoom(urlRoom);
+    setLoading(false);
+    if (!data) { setErr("Room tidak dijumpai. Minta pasangan buat room baru."); return; }
+    const existingRole = (data.names && data.names.suami && data.names.suami !== "Suami") ? "isteri" : "suami";
+    onJoin(urlRoom, data, existingRole, qrJoinNama.trim());
+  }
+
   function copyCode() {
     try { navigator.clipboard.writeText(code); } catch(e) {}
     setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+
+  // Rejoin saved session
+  async function handleRejoin() {
+    if (!session) return;
+    setLoading(true);
+    const data = await loadRoom(session.roomCode);
+    setLoading(false);
+    if (!data) {
+      clearSession();
+      setScreen("home");
+      return;
+    }
+    onJoin(session.roomCode, data, session.role, session.name);
   }
 
   const cardStyle = { background:"#fff", borderRadius:24, padding:26, width:"100%", maxWidth:340, boxShadow:"0 8px 32px rgba(0,0,0,0.2)" };
@@ -287,6 +334,56 @@ function RoomLobby({ onCreate, onJoin }) {
       <div style={{ fontSize:48, marginBottom:6 }}>🌿</div>
       <h1 style={{ color:"#fff", fontSize:26, fontWeight:900, marginBottom:4, textAlign:"center" }}>PantangCare</h1>
       <p style={{ color:"#95D5B2", fontSize:13, marginBottom:28, textAlign:"center" }}>Pengurusan pantang bersama suami isteri 💚</p>
+
+      {/* WELCOME BACK */}
+      {screen === "welcome_back" && session && (
+        <div style={{ background:"#fff", borderRadius:24, padding:28, width:"100%", maxWidth:340, boxShadow:"0 8px 32px rgba(0,0,0,0.2)", textAlign:"center" }}>
+          <div style={{ fontSize:52, marginBottom:10 }}>
+            {session.role === "suami" ? "👨" : "👩"}
+          </div>
+          <div style={{ fontSize:20, fontWeight:900, color:"#1A2E1A", marginBottom:4 }}>
+            Selamat kembali!
+          </div>
+          <div style={{ fontSize:16, color:"#2D6A4F", fontWeight:700, marginBottom:6 }}>
+            {session.name}
+          </div>
+          <div style={{ fontSize:12, color:"#888", marginBottom:8, lineHeight:1.6 }}>
+            {session.role === "suami" ? "Suami" : "Isteri"} · Room {session.roomCode}
+          </div>
+          <div style={{ height:1, background:"#F0F0F0", margin:"14px 0" }} />
+          <button onClick={handleRejoin} disabled={loading}
+            style={{ width:"100%", padding:15, borderRadius:16, border:"none", background:"linear-gradient(135deg,#2D6A4F,#40916C)", color:"#fff", fontWeight:900, fontSize:16, cursor:loading?"wait":"pointer", fontFamily:"inherit", marginBottom:10, opacity:loading?0.7:1 }}>
+            {loading ? "Sedang masuk..." : "Masuk Semula 🌿"}
+          </button>
+          <button onClick={() => { clearSession(); setScreen("home"); }}
+            style={{ width:"100%", padding:10, borderRadius:14, border:"1.5px solid #E0E8E0", background:"transparent", color:"#888", fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+            Bukan saya / Tukar akaun
+          </button>
+        </div>
+      )}
+
+      {/* QR JOIN — terus dari scan QR */}
+      {screen === "qr_join" && (
+        <div style={{ background:"#fff", borderRadius:24, padding:26, width:"100%", maxWidth:340, boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }}>
+          <div style={{ textAlign:"center", marginBottom:20 }}>
+            <div style={{ fontSize:48, marginBottom:8 }}>🌿</div>
+            <div style={{ fontSize:20, fontWeight:900, color:"#1A2E1A" }}>Selamat datang!</div>
+            <div style={{ fontSize:13, color:"#888", marginTop:6, lineHeight:1.6 }}>
+              Anda dijemput masuk ke Bilik Pantang.<br/>Sila masukkan nama anda.
+            </div>
+          </div>
+          <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>Nama anda</div>
+          <input autoFocus value={qrJoinNama} onChange={e => { setQrJoinNama(e.target.value); setErr(""); }}
+            onKeyDown={e => e.key==="Enter" && tryQrJoin()}
+            placeholder="Masukkan nama anda"
+            style={{ ...inputS, marginBottom:10 }} />
+          {err && <div style={{ fontSize:12, color:"#C0392B", marginBottom:8, textAlign:"center" }}>{err}</div>}
+          <button onClick={tryQrJoin} disabled={loading}
+            style={{ ...btnPrimary, marginTop:6, opacity: (loading || !qrJoinNama.trim()) ? 0.6 : 1 }}>
+            {loading ? "Sedang masuk..." : "Masuk Bilik Pantang 🌿"}
+          </button>
+        </div>
+      )}
 
       {/* HOME */}
       {screen === "home" && (
@@ -360,30 +457,13 @@ function RoomLobby({ onCreate, onJoin }) {
           </div>
           <button onClick={submitDetails} disabled={loading}
             style={{ ...btnPrimary, opacity:loading?0.6:1 }}>
-            {loading ? "Menjana..." : "Jana Room Code →"}
+            {loading ? "Sedang masuk..." : "Masuk Bilik Pantang 🌿"}
           </button>
           <button onClick={() => setScreen("create_name")} style={btnBack}>← Kembali</button>
         </div>
       )}
 
-      {/* CREATE: SHARE */}
-      {screen === "create_share" && code && (
-        <div style={{ ...cardStyle, textAlign:"center" }}>
-          <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A", marginBottom:4 }}>Room berjaya dicipta! 🎉</div>
-          <div style={{ fontSize:13, color:"#888", marginBottom:14 }}>Kongsi kod ini kepada pasangan</div>
-          {qrUrl && <img src={qrUrl} alt="QR" width={140} height={140} style={{ borderRadius:12, border:"2px solid #E0E8E0", marginBottom:12 }} />}
-          <div style={{ background:"#EAF4EC", borderRadius:14, padding:14, marginBottom:14 }}>
-            <div style={{ fontSize:11, color:"#888", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.08em" }}>Room Code</div>
-            <div style={{ fontSize:26, fontWeight:900, color:"#2D6A4F", letterSpacing:"0.2em", fontFamily:"monospace" }}>{code}</div>
-            <button onClick={copyCode} style={{ marginTop:8, background:"#2D6A4F", color:"#fff", border:"none", borderRadius:10, padding:"5px 14px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-              {copied ? "✓ Disalin!" : "Salin Code"}
-            </button>
-          </div>
-          <button onClick={confirmCreate} style={{ ...btnPrimary, marginTop:0 }}>
-            Mula Guna Apps →
-          </button>
-        </div>
-      )}
+
 
       {/* JOIN */}
       {screen === "join" && (
@@ -535,6 +615,39 @@ function Onboarding({ onDone }) {
 const inputStyle = { width: "100%", border: "1.5px solid #E0E8E0", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box", fontFamily: "Georgia, serif", color: "#333" };
 const addInputStyle = { width: "100%", border: "1.5px solid #E0E8E0", borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "Georgia, serif", color: "#333", background: "#fff" };
 
+
+// ─── RECUR MODAL ─────────────────────────────────────────────────────────────
+function RecurModal({ onSelect, onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, padding:24 }}
+      onClick={onClose}>
+      <div style={{ background:"#fff", borderRadius:24, padding:28, width:"100%", maxWidth:320, boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ textAlign:"center", marginBottom:20 }}>
+          <div style={{ fontSize:32, marginBottom:8 }}>📋</div>
+          <div style={{ fontSize:18, fontWeight:800, color:"#1A2E1A" }}>Jenis Tugas</div>
+          <div style={{ fontSize:13, color:"#888", marginTop:6 }}>Adakah tugas ini berulang setiap hari?</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <button onClick={() => onSelect("daily")}
+            style={{ padding:16, borderRadius:16, border:"2px solid #2D6A4F", background:"#EAF4EC", cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
+            <div style={{ fontWeight:800, fontSize:15, color:"#2D6A4F" }}>🔄 Setiap Hari</div>
+            <div style={{ fontSize:12, color:"#666", marginTop:3 }}>Tugas ini akan muncul dan auto-reset setiap hari</div>
+          </button>
+          <button onClick={() => onSelect("once")}
+            style={{ padding:16, borderRadius:16, border:"2px solid #E0E8E0", background:"#FAFCFA", cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
+            <div style={{ fontWeight:800, fontSize:15, color:"#555" }}>1️⃣ Hari Ini Sahaja</div>
+            <div style={{ fontSize:12, color:"#888", marginTop:3 }}>Tugas sekali — selesai, habis</div>
+          </button>
+        </div>
+        <button onClick={onClose} style={{ width:"100%", marginTop:14, padding:10, border:"none", background:"transparent", color:"#AAA", fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+          Batal
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── TASK CARD ────────────────────────────────────────────────────────────────
 function TaskCard({ task, currentRole, names, onToggle, onComment }) {
   const [open, setOpen] = useState(false);
@@ -564,6 +677,7 @@ function TaskCard({ task, currentRole, names, onToggle, onComment }) {
             <ReminderBadge time={task.time} />
             <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, color: roleR.color, background: roleR.bg }}>{assignLabel}</span>
             {task.comments.length > 0 && <span style={{ fontSize: 11, color: "#AAA" }}>💬 {task.comments.length}</span>}
+            {task.recur === "daily" && <span style={{ fontSize:10, color:"#2D6A4F", background:"#EAF4EC", borderRadius:10, padding:"1px 7px", fontWeight:600 }}>🔄 Harian</span>}
           </div>
           {task.done && task.completedBy && (
             <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:4 }}>
@@ -1414,8 +1528,7 @@ function NotaBidan({ bidan, setBidan, isCzer = false }) {
 }
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
-function Progress({ tasks, role, names, day }) {
-  const totalDays = 44;
+function Progress({ tasks, role, names, day, taskHistory = [] }) {
   const partnerRole = role === "suami" ? "isteri" : "suami";
   const calc = (r) => {
     const mine = tasks.filter(t => t.assignedTo === r || t.assignedTo === "bersama");
@@ -1452,34 +1565,66 @@ function Progress({ tasks, role, names, day }) {
       </div>
 
       <div style={{ background: "#fff", borderRadius: 18, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 12, color: "#888", marginBottom: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Progress Pantang</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-          <ProgressRing pct={Math.round((day/totalDays)*100)} size={64} color="#F0A500" />
+        <div style={{ fontSize: 12, color: "#888", marginBottom: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Hari Pantang</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width:64, height:64, borderRadius:"50%", background:"linear-gradient(135deg,#F0A500,#F39C12)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <span style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{day}</span>
+          </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: "#1A2E1A" }}>Hari {day} <span style={{ fontSize: 14, color: "#888", fontWeight: 400 }}>/ {totalDays}</span></div>
-            <div style={{ fontSize: 13, color: "#666" }}>{totalDays - day} hari lagi untuk sempurna</div>
-            {day >= totalDays && <div style={{ fontSize: 13, color: "#2D6A4F", fontWeight: 700 }}>🎉 Tahniah! Pantang selesai!</div>}
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#1A2E1A" }}>Hari ke-{day}</div>
+            <div style={{ fontSize: 13, color: "#666" }}>{taskHistory.length} hari telah direkod</div>
           </div>
         </div>
-        <div style={{ background: "#F5F5F5", borderRadius: 8, height: 8, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(day/totalDays)*100}%`, background: "linear-gradient(90deg, #F0A500, #F39C12)", borderRadius: 8, transition: "width 0.4s" }} />
-        </div>
       </div>
+
+      {/* HISTORY */}
+      {taskHistory.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 18, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>📅 Rekod Harian</div>
+          {[...taskHistory].reverse().map((rec, i) => {
+            const done = rec.tasks.filter(t => t.done).length;
+            const total = rec.tasks.length;
+            const pct = total ? Math.round((done/total)*100) : 0;
+            const missed = rec.tasks.filter(t => !t.done);
+            return (
+              <div key={i} style={{ borderBottom: i < taskHistory.length-1 ? "1px solid #F0F0F0" : "none", paddingBottom: 12, marginBottom: 12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14, color:"#1A2E1A" }}>Hari {rec.hari}</div>
+                    <div style={{ fontSize:11, color:"#999" }}>{rec.date}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <span style={{ fontSize:16, fontWeight:900, color: pct===100?"#2D6A4F":"#F0A500" }}>{pct}%</span>
+                    <div style={{ fontSize:11, color:"#888" }}>{done}/{total} siap</div>
+                  </div>
+                </div>
+                <div style={{ background:"#F5F5F5", borderRadius:6, height:6, overflow:"hidden", marginBottom: missed.length ? 8 : 0 }}>
+                  <div style={{ height:"100%", width:`${pct}%`, background: pct===100?"#2D6A4F":"#F0A500", borderRadius:6 }} />
+                </div>
+                {missed.length > 0 && (
+                  <div style={{ fontSize:11, color:"#C0392B" }}>
+                    ⚠️ Tertinggal: {missed.map(t => t.title).join(", ")}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── ADD TASK ─────────────────────────────────────────────────────────────────
-function AddTask({ tasks, setTasks, names }) {
+function AddTask({ tasks, setTasks, names, onRequestRecur }) {
   const [form, setForm] = useState({ title: "", time: "08:00", desc: "", category: "penjagaan", assignedTo: "suami" });
   const [msg, setMsg] = useState("");
 
   function add() {
     if (!form.title.trim()) { setMsg("Sila isi tajuk tugas."); return; }
-    setTasks(ts => [...ts, { ...form, id: Date.now(), done: false, comments: [] }]);
+    // Save pending task and show recur modal
+    onRequestRecur({ ...form, id: Date.now(), done: false, comments: [], completedBy: null, completedAt: null });
     setForm({ title: "", time: "08:00", desc: "", category: "penjagaan", assignedTo: "suami" });
-    setMsg("✅ Tugas berjaya ditambah!");
-    setTimeout(() => setMsg(""), 2000);
   }
 
   return (
@@ -1508,9 +1653,8 @@ function AddTask({ tasks, setTasks, names }) {
             </button>
           ))}
         </div>
-        {msg && <div style={{ fontSize: 13, color: msg.startsWith("✅") ? "#2D6A4F" : "#C0392B", marginBottom: 10, fontWeight: 600 }}>{msg}</div>}
         <button onClick={add} style={{ width: "100%", padding: 13, borderRadius: 14, border: "none", background: "linear-gradient(135deg, #2D6A4F, #40916C)", color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: "0 4px 16px rgba(45,106,79,0.3)", fontFamily: "inherit" }}>
-          ➕ Tambah Tugas
+          Seterusnya →
         </button>
       </div>
     </div>
@@ -1532,7 +1676,11 @@ export default function PantangCare() {
   const [names, setNames] = useState({ suami: "Suami", isteri: "Isteri", tarikhBersalin: "", jenisBersalin: "normal" });
   const [role, setRole] = useState("suami");
   const [tab, setTab] = useState("tasks");
-  const [day, setDay] = useState(7);
+  const [day, setDay] = useState(1);
+  const [taskHistory, setTaskHistory] = useState([]); // [{date, hari, tasks:[]}]
+  const [lastResetDate, setLastResetDate] = useState(todayStr());
+  const [showRecurModal, setShowRecurModal] = useState(false);
+  const [pendingTask, setPendingTask] = useState(null); // task waiting for recur selection
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [czerTaskState, setCzerTaskState] = useState(CZER_EXTRA_TASKS);
   const [menu, setMenu] = useState(INITIAL_MENU);
@@ -1544,7 +1692,7 @@ export default function PantangCare() {
   const [susu, setSusu] = useState(INITIAL_SUSU);
 
   function packState() {
-    return { onboarded, names, day, tasks, czerTaskState, menu, log, bidan, supps, bidanChecklist, susu };
+    return { onboarded, names, day, tasks, czerTaskState, menu, log, bidan, supps, bidanChecklist, susu, taskHistory, lastResetDate };
   }
   function applyState(data) {
     if (!data) return;
@@ -1566,6 +1714,8 @@ export default function PantangCare() {
       jenisSusu: data.susu.jenisSusu || "breastfeed",
     });
     if (data.onboarded != null) setOnboarded(data.onboarded);
+    if (Array.isArray(data.taskHistory)) setTaskHistory(data.taskHistory);
+    if (data.lastResetDate) setLastResetDate(data.lastResetDate);
   }
 
   // Flag untuk block save semasa apply remote data
@@ -1610,8 +1760,47 @@ export default function PantangCare() {
     return () => unsub();
   }, [inRoom, roomCode]);
 
-  // Always start from lobby for testing — no auto-restore
-  useEffect(() => { clearSession(); }, []);
+  // Session handled in RoomLobby (welcome_back screen) — no auto-restore needed here
+
+  // Auto-calculate hari pantang from tarikh bersalin
+  useEffect(() => {
+    if (!inRoom || !names.tarikhBersalin) return;
+    const calculated = calcHariPantang(names.tarikhBersalin);
+    setDay(calculated);
+  }, [inRoom, names.tarikhBersalin]);
+
+  // Daily reset — check every minute if date has changed
+  useEffect(() => {
+    if (!inRoom) return;
+    function checkReset() {
+      const today = todayStr();
+      if (today !== lastResetDate) {
+        // Save yesterday's record to history
+        const snapshot = {
+          date: lastResetDate,
+          hari: day,
+          tasks: allTasks.map(t => ({
+            id: t.id, title: t.title, assignedTo: t.assignedTo,
+            done: t.done, completedBy: t.completedBy || null, completedAt: t.completedAt || null
+          }))
+        };
+        setTaskHistory(h => [...h, snapshot]);
+        // Reset daily tasks
+        setTasks(ts => ts.map(t => t.recur === "daily"
+          ? { ...t, done: false, completedBy: null, completedAt: null }
+          : t
+        ));
+        setCzerTaskState(ts => ts.map(t => t.recur === "daily" || t.czerOnly
+          ? { ...t, done: false, completedBy: null, completedAt: null }
+          : t
+        ));
+        setLastResetDate(today);
+      }
+    }
+    checkReset();
+    const interval = setInterval(checkReset, 60000); // check every minute
+    return () => clearInterval(interval);
+  }, [inRoom, lastResetDate]);
 
   async function handleCreate(code, userRole, userName, tarikhBersalin, jenisBersalin) {
     const newNames = {
@@ -1734,22 +1923,18 @@ export default function PantangCare() {
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 11, color: "#A8D5BC" }}>Hari Pantang</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "flex-end", marginTop: 3 }}>
-              <button onClick={() => setDay(d => Math.max(1,d-1))} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-              <span style={{ fontSize: 26, fontWeight: 900, color: "#fff" }}>{day}</span>
-              <button onClick={() => setDay(d => Math.min(44,d+1))} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 3 }}>
+              <span style={{ fontSize: 30, fontWeight: 900, color: "#fff" }}>{day}</span>
             </div>
-            <div style={{ fontSize: 11, color: "#A8D5BC" }}>/ 44 hari</div>
+            <div style={{ fontSize: 11, color: "#A8D5BC" }}>hari pantang</div>
           </div>
         </div>
-        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, height: 6, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(day/44)*100}%`, background: "linear-gradient(90deg, #95D5B2, #fff)", borderRadius: 8, transition: "width 0.4s" }} />
-        </div>
+
       </div>
 
       {/* TASK FILTERS — only show in tasks tab */}
       {tab === "tasks" && (
-        <div style={{ display: "flex", gap: 6, padding: "12px 16px 0", overflowX: "auto" }}>
+        <div style={{ display: "flex", gap: 6, padding: "12px 16px 0", overflowX: "auto", alignItems:"center" }}>
           {[
             {key:"semua",label:"Semua"},
             {key:"saya",label:"Tugas Saya"},
@@ -1761,6 +1946,13 @@ export default function PantangCare() {
               {f.label}
             </button>
           ))}
+          <button onClick={() => {
+            if (window.confirm("Reset ke senarai tugas asal?")) {
+              setTasks(INITIAL_TASKS.map(t => ({...t, done:false, completedBy:null, completedAt:null})));
+            }
+          }} style={{ padding:"5px 12px", borderRadius:20, border:"1.5px solid #FFD166", background:"#FFFBEB", color:"#856404", fontWeight:600, fontSize:12, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"inherit", flexShrink:0 }}>
+            🔄 Reset
+          </button>
         </div>
       )}
 
@@ -1803,8 +1995,20 @@ export default function PantangCare() {
           <NotaBidan bidan={allBidan} setBidan={setBidan} isCzer={isCzer} />
         </div>
       )}
-      {tab === "progress" && <Progress tasks={allTasks} role={role} names={names} day={day} />}
-      {tab === "add"      && <AddTask tasks={tasks} setTasks={setTasks} names={names} />}
+      {tab === "progress" && <Progress tasks={allTasks} role={role} names={names} day={day} taskHistory={taskHistory} />}
+      {tab === "add" && <AddTask tasks={tasks} setTasks={setTasks} names={names} onRequestRecur={(task) => { setPendingTask(task); setShowRecurModal(true); setTab("tasks"); }} />}
+
+      {showRecurModal && pendingTask && (
+        <RecurModal
+          onSelect={(recur) => {
+            const newTask = { ...pendingTask, recur };
+            setTasks(ts => [...ts, newTask]);
+            setShowRecurModal(false);
+            setPendingTask(null);
+          }}
+          onClose={() => { setShowRecurModal(false); setPendingTask(null); }}
+        />
+      )}
 
       {/* BOTTOM NAV */}
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #E8E8E8", display: "flex", boxShadow: "0 -4px 20px rgba(0,0,0,0.08)", zIndex: 100 }}>
